@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Local data and secrets
+*.db
+*.sqlite3
+data/
+.env
+
+# OS / editor
+.DS_Store
+.idea/
+
+# Personal files
+W5 personal project.pdf
