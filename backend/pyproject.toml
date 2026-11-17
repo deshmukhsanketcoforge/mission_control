@@ -8,6 +8,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "sqlmodel>=0.0.22",
     "pydantic>=2.8",
+    "anthropic>=2.9.0",
 ]
 
 [dependency-groups]
