@@ -61,3 +61,73 @@ class ReportOut(BaseModel):
     fuel_pct: float
     note: str
     created_at: datetime
+
+
+class ApproveIn(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    approved_by: str = Field(min_length=1, max_length=100)
+
+
+class ViolationOut(BaseModel):
+    field: str
+    value: float
+    limit: str
+    message: str
+
+
+class CheckOut(BaseModel):
+    name: str
+    flagged: bool
+    reason: str
+    failed: bool = False
+
+
+class TraceStepOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    seq: int
+    step: str
+    round: int | None
+    model: str | None
+    input_tokens: int
+    output_tokens: int
+    latency_ms: int
+    cost_usd: str
+    status: str
+    detail: str
+
+
+class AnalysisOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    status: str
+    verdict: str
+    violations: list[ViolationOut]
+    subsystem: str | None
+    severity: str | None
+    effective_severity: str | None
+    brief_by_minutes: int | None
+    checks: list[CheckOut]
+    needs_review: bool
+    review_reasons: list[str]
+    briefing: str | None
+    evaluator_passed: bool | None
+    rounds: int
+    total_cost_usd: str
+    error: str | None
+    approved_by: str | None
+    approved_at: datetime | None
+
+
+class ReportListItem(ReportOut):
+    status: str
+    verdict: str
+    brief_by_minutes: int | None
+    needs_review: bool
+    total_cost_usd: str
+
+
+class ReportDetail(ReportOut):
+    analysis: AnalysisOut
+    trace: list[TraceStepOut]
