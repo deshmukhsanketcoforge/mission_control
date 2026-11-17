@@ -40,7 +40,7 @@
 
 * **Why:** Small, fast Claude models are cheap and good at short structured tasks
   (sorting, checks). A stronger model writes and reviews the briefing. Structured
-  output through tool use gives us JSON we can validate in code. All calls go
+  output (a JSON schema on the request) gives us JSON we validate again in code. All calls go
   through one `LLMClient` interface, so tests use a fake and need no API key.
 * **Rejected:** One large model for every step. It would raise the cost per report
   and slow down each step, with no gain on short classification tasks.

@@ -5,9 +5,9 @@ file free-text anomaly reports. A pipeline reads and sorts each one, checks the 
 against the launch limits, and drafts a short briefing. The Flight Director reviews it and
 is the only one who can approve it.
 
-> **Status:** in active development. Report filing, the launch-limit checks, brief-by time
-> and model sorting are done. The checks, draft and review loop, approval and Flight Director
-> console are planned. See [Roadmap](#roadmap).
+> **Status:** in active development. The whole backend pipeline is done: filing, launch limits,
+> brief-by time, sorting, the three checks, the draft and review loop, human-only approval, trace
+> and cost. The Flight Director console (the screen for it) is planned. See [Roadmap](#roadmap).
 
 ## Table of contents
 
@@ -36,7 +36,7 @@ An engineer files a report with:
 | `fuel_pct` | number | Fuel reading, in percent |
 | `note` | text | Free-text description of the anomaly |
 
-### Planned pipeline
+### How the pipeline works
 
 | Step | Done by | Rule |
 |---|---|---|
@@ -44,11 +44,22 @@ An engineer files a report with:
 | Check the launch limits and set the verdict | **Plain code, never a model** | Wind 25 knots or less, temperature 4 C or more, fuel 98 to 100 percent. Any reading outside its limit makes the verdict `no_go`. |
 | Set the brief-by time | Plain code | 5, 15 or 30 minutes for high, medium or low severity. Any limit violation counts as high. |
 | Run three checks at the same time | Model | Hidden instructions in the note, missing details, panic in the tone. A note that tries to instruct the system is flagged and never changes the verdict. |
-| Draft and review the briefing | Model | A second call reviews the draft. Repeats for up to three rounds. |
-| Approve | **A person** | Only the Flight Director can approve a briefing. |
+| Draft and review the briefing | Model | A second call reviews the draft. Repeats for up to three rounds. Reviewer feedback goes into the next draft. |
+| Approve | **A person** | Only a person can approve a briefing. The pipeline stops at `pending_approval`. |
+
+When a report is filed, the verdict and violations are saved straight away from plain code. The
+model steps then run in the background. Each step is written to a trace with its model, tokens,
+time and cost. Cost is calculated in code from the token counts.
+
+A report is **sent to review** (`needs_review`) when the note tries to give instructions, a check
+could not be completed, sorting fell back, or the reviewer never approved the draft. A note that
+gives instructions is flagged, its severity is not trusted (the report is briefed as high), and
+it never changes the verdict.
+
+Report status: `processing` -> `pending_approval` -> `approved` (a person only), or `failed`.
 
 The Flight Director console will show the reports, the briefing, the verdict, the cost and a
-trace of each step.
+trace card for each step.
 
 ## Quick start
 
@@ -101,6 +112,18 @@ What the tests cover today:
 - **Model sorting:** a valid reply is used. Invalid values, wrong case, missing fields, text
   that is not JSON and a failed call all fall back to `unknown` / `high`.
 - **Model interface:** the fake client and the Anthropic client (against a stub SDK).
+- **Three checks:** they run at the same time (the fake counts calls in flight). A check that
+  fails or returns an invalid reply is flagged, not passed.
+- **Hidden instructions:** a note that gives instructions is flagged, sent to review, briefed as
+  high, and never changes the verdict.
+- **Draft and review loop:** stops at three rounds, reviewer feedback goes into the next draft,
+  a broken review never approves.
+- **Approval:** only a person can approve. A state-machine test and a source scan show the
+  pipeline cannot. Approving twice, a failed report or a missing name is refused.
+- **Trace and cost:** one trace row per step with tokens, and cost per step and per report
+  calculated in code from a price table, checked to the digit.
+- **After a restart:** the analysis and trace are still there, and a report cut off mid-run is
+  marked failed.
 - Filing a report saves every field.
 - Missing, blank, non-numeric, out-of-range and too-long input is rejected with a clear message
   and nothing is saved.
@@ -121,8 +144,10 @@ Settings can also live in a `.env` file, which `make start` reads when it exists
 cp .env.example .env     # then edit it. .env is ignored by git.
 ```
 
-`.env.example` lists every setting. `ANTHROPIC_API_KEY` is only needed for live model calls
-from SAN-11 on. The app and the tests run without it. Use plain `KEY=value` lines, without
+`.env.example` lists every setting. With `ANTHROPIC_API_KEY` set, the pipeline calls Claude
+(Haiku for sorting and checks, Sonnet for drafting and review). **Without a key the app runs in
+demo mode:** an offline client with simple rules, which costs nothing and writes a briefing
+labelled as a demo. The tests never use a key. Use plain `KEY=value` lines, without
 quotes.
 
 To start from a clean slate, stop the app and delete the `data/` folder.
@@ -164,8 +189,13 @@ in [TOOL_CHOICES.md](TOOL_CHOICES.md).
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/reports` | File a report. Returns `201` and the saved report. Returns `422` on bad input. |
-| `GET` | `/api/reports` | List reports, newest first. |
+| `GET` | `/api/reports` | List reports, newest first, with status, verdict, brief-by time, review flag and cost. |
+| `GET` | `/api/reports/{id}` | One report with its analysis (verdict, violations, subsystem, severity, checks, briefing, cost) and the trace, one entry per step. |
+| `POST` | `/api/reports/{id}/approve` | A person approves a pending briefing. Body: `{"approved_by": "Name"}`. Returns `409` if the report is not pending approval, `422` without a name. |
 | `GET` | `/api/health` | Health check. |
+
+Filing returns right away. The pipeline runs in the background, so poll `GET /api/reports/{id}`
+until `analysis.status` is no longer `processing`.
 
 Example:
 
@@ -212,9 +242,11 @@ mission_control/
 │   │   ├── models.py      # Database tables
 │   │   ├── schemas.py     # Request and response shapes, input validation
 │   │   ├── db.py          # Database connection
-│   │   ├── domain/        # Plain code, no model: limits.py, brief_time.py
-│   │   ├── llm/           # base.py (the one interface), anthropic_client.py, fake.py
-│   │   └── pipeline/      # sort.py (model sorting with checked reply), prompts.py
+│   │   ├── api/           # Routes: reports.py (file, list, detail, approve), health.py, errors.py
+│   │   ├── services.py    # File a report, approve it (people only), recover after a restart
+│   │   ├── domain/        # Plain code, no model: limits, brief_time, pricing, status
+│   │   ├── llm/           # base (the one interface), anthropic_client, fake, demo, recording, factory
+│   │   └── pipeline/      # sort, checks, briefing_loop, runner, prompts
 │   └── tests/             # pytest tests
 ├── frontend/
 │   └── src/
@@ -236,8 +268,8 @@ Work is tracked in the Linear project **Mission control**. Each ticket ships as 
 |---|---|---|
 | SAN-9 | Scaffold, report filing, restart test, tool choices, README | Done |
 | SAN-10 | Launch limits, brief-by time, model interface with a fake, model sorting | Done |
-| SAN-11 | Three checks, draft and review loop, human-only approval, trace and cost | Planned |
-| SAN-12 | Flight Director console, final docs | Planned |
+| SAN-11 | Three checks, draft and review loop, human-only approval, trace and cost | Done |
+| SAN-12 | Flight Director console (UI for the above), final docs | Planned |
 
 ## Documentation
 

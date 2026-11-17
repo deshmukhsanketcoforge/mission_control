@@ -66,3 +66,41 @@ def test_needs_no_network_or_api_key(monkeypatch):
     fake = FakeLLMClient()
     fake.respond("sort", "ok")
     assert asyncio.run(fake.complete(req())).text == "ok"
+
+
+def test_reply_model_defaults_to_the_requested_model():
+    fake = FakeLLMClient()
+    fake.respond("sort", "ok")
+    out = asyncio.run(fake.complete(req(model="claude-haiku-5-5")))
+    assert out.model == "claude-haiku-5-5"
+
+
+def test_reply_model_can_be_set_explicitly():
+    fake = FakeLLMClient()
+    fake.respond("sort", "ok", model="custom")
+    assert asyncio.run(fake.complete(req(model="claude-haiku-5-5"))).model == "custom"
+
+
+def test_tracks_how_many_calls_ran_at_the_same_time():
+    fake = FakeLLMClient()
+    for step in ("a", "b", "c"):
+        fake.respond(step, "x", delay=0.01)
+
+    async def go():
+        await asyncio.gather(*(fake.complete(req(s)) for s in "abc"))
+
+    asyncio.run(go())
+    assert fake.max_in_flight == 3
+    assert fake.in_flight == 0
+
+
+def test_sequential_calls_never_overlap():
+    fake = FakeLLMClient()
+    fake.respond("a", "x", delay=0.01)
+
+    async def go():
+        for _ in range(3):
+            await fake.complete(req("a"))
+
+    asyncio.run(go())
+    assert fake.max_in_flight == 1

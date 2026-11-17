@@ -21,6 +21,7 @@ class LLMRequest:
     model: str | None = None  # None means the client's default model
     max_tokens: int = 2048
     effort: str | None = None  # low | medium | high; None means the model default
+    round: int | None = None  # draft/review round, for the trace
 
 
 @dataclass(frozen=True)
