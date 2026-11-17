@@ -1,3 +1,5 @@
+import socket
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -27,3 +29,20 @@ def valid_report():
         "fuel_pct": 99.2,
         "note": "Valve V3 stuck for two seconds before opening.",
     }
+
+
+@pytest.fixture(autouse=True)
+def no_network_and_no_api_key(monkeypatch):
+    """Tests must pass offline and without credentials.
+
+    Any attempt to open a network connection fails the test, and API keys are
+    removed from the environment so a real client can never be used by accident.
+    """
+    for var in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+        monkeypatch.delenv(var, raising=False)
+
+    def blocked(*args, **kwargs):
+        raise RuntimeError("Network access is not allowed in tests.")
+
+    monkeypatch.setattr(socket.socket, "connect", blocked)
+    monkeypatch.setattr(socket, "create_connection", blocked)

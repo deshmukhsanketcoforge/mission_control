@@ -5,8 +5,9 @@ file free-text anomaly reports. A pipeline reads and sorts each one, checks the 
 against the launch limits, and drafts a short briefing. The Flight Director reviews it and
 is the only one who can approve it.
 
-> **Status:** in active development. Report filing is done. The launch-limit checks, model
-> pipeline and Flight Director console are planned. See [Roadmap](#roadmap).
+> **Status:** in active development. Report filing, the launch-limit checks, brief-by time
+> and model sorting are done. The checks, draft and review loop, approval and Flight Director
+> console are planned. See [Roadmap](#roadmap).
 
 ## Table of contents
 
@@ -88,8 +89,18 @@ This runs the backend tests (pytest) and then the frontend tests (Vitest). The t
 network and no API key. Once the model pipeline lands, all model calls will go through one
 interface with a fake client, so the tests will stay offline.
 
+A test guard blocks all network connections and removes API keys from the environment, so
+a test that tries to reach a real model fails instead of passing by accident.
+
 What the tests cover today:
 
+- **Launch limits:** each limit is tested exactly on the limit and just past it (wind 25 and
+  25.01, temperature 4 and 3.99, fuel 98, 97.99, 100 and 100.01). Readings that are not
+  finite numbers count as violations.
+- **Brief-by time:** 5, 15 and 30 minutes for high, medium and low. Any violation gives 5.
+- **Model sorting:** a valid reply is used. Invalid values, wrong case, missing fields, text
+  that is not JSON and a failed call all fall back to `unknown` / `high`.
+- **Model interface:** the fake client and the Anthropic client (against a stub SDK).
 - Filing a report saves every field.
 - Missing, blank, non-numeric, out-of-range and too-long input is rejected with a clear message
   and nothing is saved.
@@ -103,6 +114,16 @@ What the tests cover today:
 |---|---|---|
 | `PORT` (make variable) | `8000` | Port for `make start` |
 | `MISSION_CONTROL_DB_URL` (environment variable) | `sqlite:///<repo>/data/mission_control.db` | Database location. Point it at another SQLite file, for example `sqlite:////tmp/demo.db`. |
+
+Settings can also live in a `.env` file, which `make start` reads when it exists:
+
+```bash
+cp .env.example .env     # then edit it. .env is ignored by git.
+```
+
+`.env.example` lists every setting. `ANTHROPIC_API_KEY` is only needed for live model calls
+from SAN-11 on. The app and the tests run without it. Use plain `KEY=value` lines, without
+quotes.
 
 To start from a clean slate, stop the app and delete the `data/` folder.
 
@@ -133,7 +154,7 @@ cd frontend && npm run build            # production build into frontend/dist
 | Back end | FastAPI, Python 3.12+, Pydantic v2, managed with uv |
 | Front end | React, Vite, TypeScript, tested with Vitest and Testing Library |
 | Database | SQLite through SQLModel and SQLAlchemy |
-| Models | Anthropic Claude behind a single interface (planned) |
+| Models | Anthropic Claude (Haiku for sorting, Sonnet for drafting) behind a single interface, with a fake for tests |
 
 The reason for each choice, the alternative we rejected and the customer concern it answers are
 in [TOOL_CHOICES.md](TOOL_CHOICES.md).
@@ -190,7 +211,10 @@ mission_control/
 │   │   ├── main.py        # FastAPI app, routes, error format, serves the frontend
 │   │   ├── models.py      # Database tables
 │   │   ├── schemas.py     # Request and response shapes, input validation
-│   │   └── db.py          # Database connection
+│   │   ├── db.py          # Database connection
+│   │   ├── domain/        # Plain code, no model: limits.py, brief_time.py
+│   │   ├── llm/           # base.py (the one interface), anthropic_client.py, fake.py
+│   │   └── pipeline/      # sort.py (model sorting with checked reply), prompts.py
 │   └── tests/             # pytest tests
 ├── frontend/
 │   └── src/
@@ -199,6 +223,7 @@ mission_control/
 │       ├── ReportList.tsx     # Filed reports
 │       ├── api.ts             # API calls
 │       └── *.test.tsx         # Vitest tests
+├── .env.example               # Settings template, copy to .env
 ├── Makefile                   # make start, make test
 └── TOOL_CHOICES.md            # Why each tool was chosen
 ```
@@ -210,7 +235,7 @@ Work is tracked in the Linear project **Mission control**. Each ticket ships as 
 | Ticket | Scope | Status |
 |---|---|---|
 | SAN-9 | Scaffold, report filing, restart test, tool choices, README | Done |
-| SAN-10 | Launch limits, brief-by time, model interface with a fake, model sorting | Planned |
+| SAN-10 | Launch limits, brief-by time, model interface with a fake, model sorting | Done |
 | SAN-11 | Three checks, draft and review loop, human-only approval, trace and cost | Planned |
 | SAN-12 | Flight Director console, final docs | Planned |
 
