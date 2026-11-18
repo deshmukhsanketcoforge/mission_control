@@ -68,6 +68,14 @@ describe('labels', () => {
     expect(verdictLabel('no_go')).toBe('NO-GO')
   })
 
+  it.each(['', 'maybe', 'GO', 'nogo'])('does not call an unknown verdict %j a NO-GO', (v) => {
+    expect(verdictLabel(v)).toBe('UNKNOWN')
+  })
+
+  it.each([undefined, null])('shows UNKNOWN when the verdict is %s', (v) => {
+    expect(verdictLabel(v as unknown as string)).toBe('UNKNOWN')
+  })
+
   it('statuses', () => {
     expect(statusLabel('processing')).toBe('Processing')
     expect(statusLabel('pending_approval')).toBe('Awaiting approval')

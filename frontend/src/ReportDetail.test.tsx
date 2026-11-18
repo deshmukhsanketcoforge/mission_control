@@ -211,3 +211,32 @@ describe('when approving is not possible', () => {
     expect(screen.queryByRole('button', { name: 'Approve briefing' })).not.toBeInTheDocument()
   })
 })
+
+describe('when there is no briefing text', () => {
+  it.each(['pending_approval', 'approved'])('says so instead of an empty paragraph (%s)', (status) => {
+    show({}, { status, briefing: null, approved_by: status === 'approved' ? 'Dana' : null })
+    const section = screen.getByRole('region', { name: 'Briefing' })
+    expect(section).toHaveTextContent('No briefing was drafted for this report.')
+    expect(section.querySelectorAll('p:empty')).toHaveLength(0)
+  })
+
+  it('treats an empty string like a missing briefing', () => {
+    show({}, { status: 'pending_approval', briefing: '   ' })
+    expect(screen.getByRole('region', { name: 'Briefing' })).toHaveTextContent('No briefing was drafted')
+  })
+
+  it('does not show the notice when a briefing exists', () => {
+    show()
+    expect(screen.queryByText(/No briefing was drafted/)).not.toBeInTheDocument()
+  })
+
+  it('does not show the notice while processing or after a failure', () => {
+    show({}, { status: 'failed', briefing: null, error: 'boom' })
+    expect(screen.queryByText(/No briefing was drafted/)).not.toBeInTheDocument()
+  })
+
+  it('shows an unknown verdict as UNKNOWN, never NO-GO', () => {
+    show({}, { verdict: '' })
+    expect(screen.getByLabelText('Verdict')).toHaveTextContent('UNKNOWN')
+  })
+})

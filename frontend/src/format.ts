@@ -27,8 +27,11 @@ export function stepLabel(step: string, round: number | null): string {
   return STEP_LABELS[step] ?? step
 }
 
+/** Only the two verdicts the server sends get a label. Anything else must not look like a decision. */
 export function verdictLabel(verdict: string): string {
-  return verdict === 'go' ? 'GO' : 'NO-GO'
+  if (verdict === 'go') return 'GO'
+  if (verdict === 'no_go') return 'NO-GO'
+  return 'UNKNOWN'
 }
 
 const STATUS_LABELS: Record<string, string> = {

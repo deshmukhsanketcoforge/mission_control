@@ -88,3 +88,24 @@ def test_filing_returns_the_verdict_and_violations_at_once(client):
     out = client.post("/api/reports", json=body).json()
     assert out["verdict"] == "no_go" and out["status"] == "processing"
     assert out["violations"][0]["field"] == "wind_knots"
+
+
+def test_filing_response_matches_the_stored_report(client):
+    body = {"name": "Ada", "station": "P", "wind_knots": 10, "temp_c": 15, "fuel_pct": 99, "note": "ok"}
+    out = client.post("/api/reports", json=body).json()
+    stored = client.get(f"/api/reports/{out['id']}").json()
+    for field in ("id", "name", "station", "wind_knots", "temp_c", "fuel_pct", "note", "created_at"):
+        assert out[field] == stored[field]
+    assert out["violations"] == [] and out["verdict"] == "go"
+
+
+def test_report_fields_lets_later_values_win_instead_of_clashing():
+    from types import SimpleNamespace
+
+    from app.schemas import ReportOut, report_fields
+
+    row = SimpleNamespace(id=1, name="A", station="S", wind_knots=1.0, temp_c=2.0, fuel_pct=3.0,
+                          note="n", created_at="2026-11-17T01:00:00Z", status="ignored")
+    fields = report_fields(row)
+    assert set(fields) == set(ReportOut.model_fields)
+    assert {**fields, "name": "B"}["name"] == "B"  # a dict merge cannot raise a duplicate-keyword error

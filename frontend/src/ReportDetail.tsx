@@ -117,6 +117,7 @@ function BriefingBody(props: { status: string; briefing: string | null; error: s
   if (props.status === 'failed') {
     return <p className="error">The pipeline failed: {props.error ?? 'unknown error'}</p>
   }
+  if (!props.briefing?.trim()) return <p className="muted">No briefing was drafted for this report.</p>
   return <p>{props.briefing}</p>
 }
 

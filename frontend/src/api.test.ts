@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, approveReport, getReport, listReports } from './api'
+import { ApiError, approveReport, fileReport, getReport, listReports } from './api'
 
 const fetchMock = vi.fn()
 beforeEach(() => vi.stubGlobal('fetch', fetchMock))
@@ -64,5 +64,20 @@ describe('approveReport', () => {
   it('has a general message for an unexpected failure', async () => {
     fetchMock.mockResolvedValue(reply(500, {}))
     await expect(approveReport(3, 'Dana')).rejects.toThrow(/Could not approve/)
+  })
+})
+
+describe('fileReport response', () => {
+  it('returns the verdict, status and violations the server sends back at once', async () => {
+    const created = {
+      id: 7, name: 'A', station: 'S', wind_knots: 30, temp_c: 10, fuel_pct: 99, note: 'n',
+      created_at: '2026-11-17T01:00:00Z', status: 'processing', verdict: 'no_go',
+      violations: [{ field: 'wind_knots', value: 30, limit: '25', message: 'Wind too high.' }],
+    }
+    vi.stubGlobal('fetch', vi.fn(async () => ({ status: 201, ok: true, json: async () => created })))
+    const out = await fileReport({ name: 'A', station: 'S', wind_knots: 30, temp_c: 10, fuel_pct: 99, note: 'n' })
+    expect(out.verdict).toBe('no_go')
+    expect(out.status).toBe('processing')
+    expect(out.violations[0].field).toBe('wind_knots')
   })
 })

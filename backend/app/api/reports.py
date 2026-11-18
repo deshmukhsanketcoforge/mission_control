@@ -15,7 +15,7 @@ from app.schemas import (
     ReportIn,
     ReportCreated,
     ReportListItem,
-    ReportOut,
+    report_fields,
 )
 from app.services import ReportNotFound, approve_report, file_report, get_analysis
 
@@ -39,10 +39,12 @@ def create_report(
         run_pipeline, request.app.state.engine, report.id, request.app.state.llm_client
     )
     return ReportCreated(
-        **ReportOut.model_validate(report).model_dump(),
-        status=analysis.status,
-        verdict=analysis.verdict,
-        violations=analysis.violations,
+        **{
+            **report_fields(report),
+            "status": analysis.status,
+            "verdict": analysis.verdict,
+            "violations": analysis.violations,
+        }
     )
 
 
@@ -55,12 +57,14 @@ def list_reports(session: Session = Depends(get_session)):
     ).all()
     return [
         ReportListItem(
-            **ReportOut.model_validate(report).model_dump(),
-            status=analysis.status,
-            verdict=analysis.verdict,
-            brief_by_minutes=analysis.brief_by_minutes,
-            needs_review=analysis.needs_review,
-            total_cost_usd=analysis.total_cost_usd,
+            **{
+                **report_fields(report),
+                "status": analysis.status,
+                "verdict": analysis.verdict,
+                "brief_by_minutes": analysis.brief_by_minutes,
+                "needs_review": analysis.needs_review,
+                "total_cost_usd": analysis.total_cost_usd,
+            }
         )
         for report, analysis in rows
     ]
@@ -75,9 +79,11 @@ def report_detail(report_id: int, session: Session = Depends(get_session)):
         select(TraceStep).where(TraceStep.report_id == report_id).order_by(TraceStep.seq)
     ).all()
     return ReportDetail(
-        **ReportOut.model_validate(report).model_dump(),
-        analysis=AnalysisOut.model_validate(get_analysis(session, report_id)),
-        trace=trace,
+        **{
+            **report_fields(report),
+            "analysis": AnalysisOut.model_validate(get_analysis(session, report_id)),
+            "trace": trace,
+        }
     )
 
 

@@ -11,7 +11,10 @@ export default function Console({ pollMs = POLL_MS }: { pollMs?: number }) {
   const [pickedId, setPickedId] = useState<number | null>(null)
 
   const reports = list.reports ?? []
-  const selectedId = pickedId ?? reports[0]?.id ?? null
+  // Open the newest report once, then stay on it: a report filed later must not swap the
+  // detail pane under a director who is reading it or typing their name.
+  if (pickedId === null && reports.length > 0) setPickedId(reports[0].id)
+  const selectedId = pickedId
   const detail = useReportDetail(selectedId, pollMs)
   const waiting = reports.filter((r) => r.status === 'pending_approval').length
 

@@ -22,7 +22,14 @@ export class ValidationError extends Error {
   }
 }
 
-export async function fileReport(input: ReportInput): Promise<Report> {
+/** What filing returns at once: the verdict is plain code, so it is known before the pipeline ends. */
+export interface ReportCreated extends Report {
+  status: string
+  verdict: string
+  violations: Violation[]
+}
+
+export async function fileReport(input: ReportInput): Promise<ReportCreated> {
   const res = await fetch('/api/reports', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

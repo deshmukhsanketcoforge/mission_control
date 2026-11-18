@@ -65,6 +65,9 @@ def test_total_cost_sums_decimals_without_float_error():
         (Decimal("0.6000"), "0.6"),
         (Decimal("1E-7"), "0.0000001"),
         (Decimal("2.50"), "2.5"),
+        (Decimal("1E+2"), "100"),
+        (Decimal("0E-7"), "0"),
+        (Decimal("1.5E-10"), "0.00000000015"),
     ],
 )
 def test_format_usd_never_uses_scientific_notation(value, text):

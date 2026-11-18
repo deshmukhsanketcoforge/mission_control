@@ -63,6 +63,11 @@ class ReportOut(BaseModel):
     created_at: datetime
 
 
+def report_fields(report) -> dict:
+    """A report row as a plain dict. Merge extra values over it with ``{**fields, "x": 1}``."""
+    return ReportOut.model_validate(report).model_dump()
+
+
 class ReportCreated(ReportOut):
     """What filing returns: the report plus the plain-code verdict, available at once."""
 

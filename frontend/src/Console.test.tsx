@@ -139,6 +139,54 @@ describe('the report detail', () => {
   })
 })
 
+describe('the selected report stays put', () => {
+  it('keeps the same report open when a newer one is filed while nothing was clicked', async () => {
+    add(1, 'Propulsion-2')
+    render(<Console pollMs={30} />)
+    await screen.findByText('Briefing for Propulsion-2')
+
+    add(2, 'Pad-1')
+    await screen.findByRole('button', { name: /Pad-1/ })
+    await new Promise((r) => setTimeout(r, 120))
+
+    expect(screen.getByText('Briefing for Propulsion-2')).toBeInTheDocument()
+    expect(screen.queryByText('Briefing for Pad-1')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Propulsion-2/ })).toHaveAttribute('aria-current', 'true')
+  })
+
+  it('does not lose a half-typed approval name when a new report arrives', async () => {
+    const user = userEvent.setup()
+    add(1, 'Propulsion-2')
+    render(<Console pollMs={30} />)
+    await screen.findByText('Briefing for Propulsion-2')
+    await user.type(screen.getByLabelText('Your name'), 'Dana')
+
+    add(2, 'Pad-1')
+    await screen.findByRole('button', { name: /Pad-1/ })
+    await new Promise((r) => setTimeout(r, 120))
+
+    expect(screen.getByLabelText('Your name')).toHaveValue('Dana')
+  })
+
+  it('opens the newest report only on the first load', async () => {
+    add(1, 'A')
+    add(2, 'B')
+    render(<Console pollMs={30} />)
+    expect(await screen.findByText('Briefing for B')).toBeInTheDocument()
+    add(3, 'C')
+    await screen.findByRole('button', { name: /#3 C/ })
+    await new Promise((r) => setTimeout(r, 100))
+    expect(screen.getByText('Briefing for B')).toBeInTheDocument()
+  })
+
+  it('picks the first report when the list starts empty and fills later', async () => {
+    render(<Console pollMs={30} />)
+    await screen.findByText('No reports yet.')
+    add(1, 'Propulsion-2')
+    expect(await screen.findByText('Briefing for Propulsion-2')).toBeInTheDocument()
+  })
+})
+
 describe('keeping up with new reports', () => {
   it('shows a report that is filed after the page opened', async () => {
     add(1, 'Propulsion-2')

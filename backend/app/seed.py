@@ -8,6 +8,7 @@ approved by seeding: a person still has to do that in the console.
 import argparse
 import json
 import sys
+import urllib.error
 import urllib.request
 from typing import Protocol
 
@@ -105,13 +106,34 @@ class HttpApi:
         urllib.request.urlopen(request, timeout=10).close()
 
 
+class SeedError(Exception):
+    """Filing stopped part way. The reports before the failure are already stored."""
+
+    def __init__(self, filed: int, total: int) -> None:
+        super().__init__(f"Filed {filed} of {total} sample reports")
+        self.filed = filed
+        self.total = total
+
+
 def seed(api: Api, force: bool = False) -> int:
     """File the sample reports. Skips a database that already has reports unless forced."""
     if not force and api.count() > 0:
         return 0
+    filed = 0
     for payload in SAMPLE_REPORTS:
-        api.file(payload)
-    return len(SAMPLE_REPORTS)
+        try:
+            api.file(payload)
+        except OSError as err:
+            raise SeedError(filed, len(SAMPLE_REPORTS)) from err
+        filed += 1
+    return filed
+
+
+def _describe(err: BaseException | None, url: str = "") -> str:
+    # HTTPError is an OSError too, but it means the app answered, so it is not "unreachable".
+    if isinstance(err, urllib.error.HTTPError):
+        return f"The app at {url or 'the given url'} answered HTTP {err.code} ({err.reason})."
+    return f"Could not reach the app at {url}: {err}\nStart it first with: make start"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -122,8 +144,15 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         filed = seed(HttpApi(args.url), force=args.force)
+    except SeedError as err:
+        print(
+            f"{err}. {_describe(err.__cause__)}\n"
+            "Those reports are already stored. Fix the problem, then run again with --force "
+            "to add the full set (it will repeat the ones already filed)."
+        )
+        return 1
     except OSError as err:
-        print(f"Could not reach the app at {args.url}: {err}\nStart it first with: make start")
+        print(_describe(err, args.url))
         return 1
     if filed:
         print(f"Filed {filed} sample reports. Open {args.url} and switch to Flight Director.")

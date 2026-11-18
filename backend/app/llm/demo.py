@@ -23,9 +23,21 @@ _SUBSYSTEMS = {
 _INSTRUCTION_WORDS = (
     "ignore", "disregard", "system:", "instruction", "mark this", "mark it",
     "override", "approve the", "you must", "assistant", "set severity",
-    "forget the above", "forget all", "forget everything", "you are now", "approve this",
-    "new instructions",
+    "forget the above", "approve this", "new instructions",
 )
+# Phrases that only count as instructions in a certain shape, so honest notes such as
+# "Forget all earlier readings, the sensor was reset" are not flagged.
+_INSTRUCTION_PATTERNS = (
+    re.compile(r"\bforget (all|everything)\b.{0,20}\b(previous|prior|above|earlier instructions|instructions|rules|limits)\b"),
+    re.compile(r"\bforget (all|everything) above\b"),
+    re.compile(r"\byou are now (the|a|an)\b"),
+)
+
+
+def _looks_like_instructions(lowered: str) -> bool:
+    return any(w in lowered for w in _INSTRUCTION_WORDS) or any(
+        p.search(lowered) for p in _INSTRUCTION_PATTERNS
+    )
 
 
 class DemoLLMClient:
@@ -44,7 +56,7 @@ class DemoLLMClient:
             )
             return {"subsystem": subsystem, "severity": "medium"}
         if step == "check_injection":
-            hit = any(w in lowered for w in _INSTRUCTION_WORDS)
+            hit = _looks_like_instructions(lowered)
             return {"flagged": hit, "reason": "Demo rule: the note contains instruction-like words."
                     if hit else "Demo rule: no instruction-like words found."}
         if step == "check_missing":
@@ -52,6 +64,7 @@ class DemoLLMClient:
             return {"flagged": short, "reason": "Demo rule: the note is very short."
                     if short else "Demo rule: the note has enough words."}
         if step == "check_panic":
+            # Three shouted words, not two: SQL-like text such as "DROP TABLE" must stay calm.
             shouting = note.count("!") >= 2 or len(re.findall(r"\b[A-Z]{4,}\b", note)) >= 3
             return {"flagged": shouting, "reason": "Demo rule: the note shouts."
                     if shouting else "Demo rule: the tone is calm."}
