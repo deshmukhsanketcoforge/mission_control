@@ -5,7 +5,7 @@ ifneq ($(wildcard .env),)
 ENV_ARG = --env-file ../.env
 endif
 
-.PHONY: start test
+.PHONY: start test seed
 
 # One command: install, build the frontend, serve everything on http://localhost:$(PORT)
 start:
@@ -16,3 +16,8 @@ start:
 test:
 	cd backend && uv run pytest -q
 	cd frontend && npm install --no-audit --no-fund && npm test
+
+# While the app is running: file sample reports so the console has something to show.
+# Uses your API key if one is set in .env, otherwise the free offline demo mode.
+seed:
+	cd backend && uv run python -m app.seed --url http://127.0.0.1:$(PORT)

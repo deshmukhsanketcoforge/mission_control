@@ -63,6 +63,14 @@ class ReportOut(BaseModel):
     created_at: datetime
 
 
+class ReportCreated(ReportOut):
+    """What filing returns: the report plus the plain-code verdict, available at once."""
+
+    status: str
+    verdict: str
+    violations: list["ViolationOut"]
+
+
 class ApproveIn(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
