@@ -256,3 +256,14 @@ def test_pipeline_code_has_no_way_to_approve():
         assert "APPROVED" not in source, path.name
         assert "Actor.HUMAN" not in source, path.name
         assert "approved_by" not in source, path.name
+
+
+def test_unknown_model_costs_zero_with_a_note_and_does_not_crash(engine):
+    fake = pipeline_fake()
+    fake.clear("sort")
+    fake.respond("sort", {"subsystem": "propulsion", "severity": "low"}, model="mystery-model")
+    analysis, trace = process(engine, fake)
+    step = next(t for t in trace if t.step == "sort")
+    assert step.cost_usd == "0"
+    assert "No price known for model mystery-model" in step.detail
+    assert analysis.status == "pending_approval"

@@ -23,6 +23,8 @@ _SUBSYSTEMS = {
 _INSTRUCTION_WORDS = (
     "ignore", "disregard", "system:", "instruction", "mark this", "mark it",
     "override", "approve the", "you must", "assistant", "set severity",
+    "forget the above", "forget all", "forget everything", "you are now", "approve this",
+    "new instructions",
 )
 
 
@@ -50,7 +52,7 @@ class DemoLLMClient:
             return {"flagged": short, "reason": "Demo rule: the note is very short."
                     if short else "Demo rule: the note has enough words."}
         if step == "check_panic":
-            shouting = note.count("!") >= 2 or len(re.findall(r"\b[A-Z]{4,}\b", note)) >= 2
+            shouting = note.count("!") >= 2 or len(re.findall(r"\b[A-Z]{4,}\b", note)) >= 3
             return {"flagged": shouting, "reason": "Demo rule: the note shouts."
                     if shouting else "Demo rule: the tone is calm."}
         if step == "draft":

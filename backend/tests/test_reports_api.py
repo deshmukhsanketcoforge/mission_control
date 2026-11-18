@@ -81,3 +81,10 @@ def test_long_note_is_rejected(client, valid_report):
     r = client.post("/api/reports", json=valid_report)
     assert r.status_code == 422
     assert "at most 2000" in r.json()["errors"]["note"]
+
+
+def test_filing_returns_the_verdict_and_violations_at_once(client):
+    body = {"name": "Ada", "station": "P", "wind_knots": 30, "temp_c": 15, "fuel_pct": 99, "note": "ok"}
+    out = client.post("/api/reports", json=body).json()
+    assert out["verdict"] == "no_go" and out["status"] == "processing"
+    assert out["violations"][0]["field"] == "wind_knots"

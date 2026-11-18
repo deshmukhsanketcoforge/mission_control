@@ -13,6 +13,7 @@ from app.schemas import (
     ApproveIn,
     ReportDetail,
     ReportIn,
+    ReportCreated,
     ReportListItem,
     ReportOut,
 )
@@ -25,19 +26,24 @@ def _not_found():
     return error_response(404, "report", "Report not found.")
 
 
-@router.post("", response_model=ReportOut, status_code=201)
+@router.post("", response_model=ReportCreated, status_code=201)
 def create_report(
     payload: ReportIn,
     request: Request,
     background: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
-    report, _ = file_report(session, payload)
+    report, analysis = file_report(session, payload)
     # The pipeline runs after the response, so filing returns right away.
     background.add_task(
         run_pipeline, request.app.state.engine, report.id, request.app.state.llm_client
     )
-    return report
+    return ReportCreated(
+        **ReportOut.model_validate(report).model_dump(),
+        status=analysis.status,
+        verdict=analysis.verdict,
+        violations=analysis.violations,
+    )
 
 
 @router.get("", response_model=list[ReportListItem])
