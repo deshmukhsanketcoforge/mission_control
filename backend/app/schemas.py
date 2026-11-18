@@ -7,6 +7,7 @@ before anything is saved.
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic_core import PydanticCustomError
 
 # Physical sanity ranges. These reject impossible input (typos, wrong units).
 # They are NOT the launch limits; those are checked later in plain code.
@@ -24,6 +25,14 @@ class ReportIn(BaseModel):
     temp_c: float
     fuel_pct: float
     note: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("wind_knots", "temp_c", "fuel_pct", mode="before")
+    @classmethod
+    def _not_a_boolean(cls, v):
+        # JSON true/false would otherwise be read as 1.0/0.0 and slip through as a reading.
+        if isinstance(v, bool):
+            raise PydanticCustomError("float_type", "Must be a number.")
+        return v
 
     @field_validator("wind_knots")
     @classmethod

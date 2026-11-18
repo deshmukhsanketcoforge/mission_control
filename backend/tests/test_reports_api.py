@@ -66,6 +66,18 @@ def test_non_numeric_reading_is_rejected(client, valid_report, field):
     assert r.json()["errors"][field] == "Must be a number."
 
 
+@pytest.mark.parametrize("field", ["wind_knots", "temp_c", "fuel_pct"])
+@pytest.mark.parametrize("value", [True, False])
+def test_a_json_boolean_is_not_a_reading(client, valid_report, field, value):
+    # true would otherwise be saved as 1.0 and change the verdict.
+    valid_report[field] = value
+    before = client.get("/api/reports").json()
+    r = client.post("/api/reports", json=valid_report)
+    assert r.status_code == 422
+    assert r.json()["errors"][field] == "Must be a number."
+    assert client.get("/api/reports").json() == before  # nothing saved
+
+
 def test_boundary_values_are_accepted(client, valid_report):
     # Launch-limit edges (25 kt, 4 C, 98 and 100 %) are valid input.
     for wind, temp, fuel in [(25, 4, 98), (25.01, 3.99, 97.99), (0, -90, 100)]:
