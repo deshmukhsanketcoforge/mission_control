@@ -61,8 +61,6 @@ network and no API key: every model call goes through one interface, and the tes
 A test guard blocks all network connections and removes API keys from the environment, so a
 test that tries to reach a real model fails instead of passing by accident.
 
-A saved run of both commands is in [docs/test-output.txt](docs/test-output.txt).
-
 What the tests cover:
 
 | Area | What is checked |
@@ -278,7 +276,6 @@ mission_control/
 │       ├── hooks.ts           # Polling for the list and the open report
 │       ├── api.ts, format.ts  # API calls and display helpers
 │       └── *.test.ts(x)       # Vitest tests
-├── docs/test-output.txt       # Saved run of make test
 ├── .env.example               # Settings template, copy to .env
 ├── Makefile                   # make start, make test, make seed
 └── TOOL_CHOICES.md            # Why each tool was chosen
@@ -298,4 +295,3 @@ Work is tracked in the Linear project **Mission control**. Each ticket ships as 
 ## Documentation
 
 - [TOOL_CHOICES.md](TOOL_CHOICES.md): tool choices with reasons, rejected alternatives and customer concerns
-- [docs/test-output.txt](docs/test-output.txt): saved output of `make test`
